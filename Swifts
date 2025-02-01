@@ -1,0 +1,36 @@
+ Firebase Integration for User Data
+
+// FirebaseManager.swift
+import Firebase
+
+class FirebaseManager {
+    static let shared = FirebaseManager()
+    private let db = Firestore.firestore()
+    
+    func saveMeal(meal: Meal, userId: String) {
+        db.collection("users").document(userId).collection("meals").addDocument(data: [
+            "name": meal.name,
+            "calories": meal.calories,
+            "protein": meal.protein,
+            "date": Timestamp(date: Date())
+        ]) { error in
+            if let error = error {
+                print("Error saving meal: \(error)")
+            }
+        }
+    }
+    
+    func fetchDailyCalories(userId: String, completion: @escaping (Double) -> Void) {
+        db.collection("users").document(userId).collection("meals")
+            .whereField("date", isGreaterThan: Calendar.current.startOfDay(for: Date()))
+            .getDocuments { snapshot, error in
+                var totalCalories: Double = 0
+                if let documents = snapshot?.documents {
+                    for document in documents {
+                        totalCalories += document.data()["calories"] as? Double ?? 0
+                    }
+                }
+                completion(totalCalories)
+            }
+    }
+}
