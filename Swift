@@ -1,0 +1,58 @@
+// FoodSearchView.swift
+import SwiftUI
+
+struct FoodSearchView: View {
+    @State private var searchText = ""
+    @State private var foodResults: [FoodItem] = []
+    
+    var body: some View {
+        VStack {
+            TextField("Search food...", text: $searchText)
+                .padding()
+                .onSubmit {
+                    fetchFoodData(query: searchText)
+                }
+            
+            List(foodResults) { food in
+                FoodRow(food: food)
+            }
+        }
+    }
+    
+    func fetchFoodData(query: String) {
+        let apiKey = "YOUR_NUTRITIONIX_API_KEY"
+        let urlString = "https://api.nutritionix.com/v1_1/search/\(query)?results=0:20&fields=item_name,brand_name,nf_calories,nf_protein,nf_total_fat,nf_total_carbohydrate&appId=YOUR_APP_ID&appKey=\(apiKey)"
+        
+        guard let url = URL(string: urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") else { return }
+        
+        URLSession.shared.dataTask(with: url) { data, _, error in
+            if let data = data {
+                do {
+                    let result = try JSONDecoder().decode(NutritionixResponse.self, from: data)
+                    DispatchQueue.main.async {
+                        foodResults = result.hits.compactMap { $0.fields }
+                    }
+                } catch {
+                    print("Error decoding data: \(error)")
+                }
+            }
+        }.resume()
+    }
+}
+
+struct FoodItem: Identifiable, Decodable {
+    let id = UUID()
+    let item_name: String
+    let nf_calories: Double
+    let nf_protein: Double
+    let nf_total_fat: Double
+    let nf_total_carbohydrate: Double
+}
+
+struct NutritionixResponse: Decodable {
+    let hits: [Hit]
+    
+    struct Hit: Decodable {
+        let fields: FoodItem
+    }
+}
